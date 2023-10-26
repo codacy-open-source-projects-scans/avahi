@@ -32,6 +32,7 @@
 #include <avahi-common/malloc.h>
 #include <avahi-common/defs.h>
 
+#include "dns.h"
 #include "rr.h"
 #include "log.h"
 #include "util.h"
@@ -426,6 +427,7 @@ AvahiRecord *avahi_record_copy(AvahiRecord *r) {
     copy->ref = 1;
     copy->key = avahi_key_ref(r->key);
     copy->ttl = r->ttl;
+    memset(&copy->data, 0, sizeof(copy->data));
 
     switch (r->key->type) {
         case AVAHI_DNS_TYPE_PTR:
@@ -466,7 +468,7 @@ AvahiRecord *avahi_record_copy(AvahiRecord *r) {
             break;
 
         default:
-            if (!(copy->data.generic.data = avahi_memdup(r->data.generic.data, r->data.generic.size)))
+            if (r->data.generic.size && !(copy->data.generic.data = avahi_memdup(r->data.generic.data, r->data.generic.size)))
                 goto fail;
             copy->data.generic.size = r->data.generic.size;
             break;
@@ -688,10 +690,16 @@ int avahi_record_is_valid(AvahiRecord *r) {
         case AVAHI_DNS_TYPE_TXT: {
 
             AvahiStringList *strlst;
+            size_t used = 0;
 
-            for (strlst = r->data.txt.string_list; strlst; strlst = strlst->next)
+            for (strlst = r->data.txt.string_list; strlst; strlst = strlst->next) {
                 if (strlst->size > 255 || strlst->size <= 0)
                     return 0;
+
+                used += 1+strlst->size;
+                if (used > AVAHI_DNS_RDATA_MAX)
+                    return 0;
+            }
 
             return 1;
         }

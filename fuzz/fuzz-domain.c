@@ -17,41 +17,39 @@
   USA.
 ***/
 
+#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 
+#include "avahi-common/alternative.h"
 #include "avahi-common/malloc.h"
-#include "avahi-core/dns.h"
-#include "avahi-core/log.h"
+#include "avahi-common/domain.h"
 
-void log_function(AvahiLogLevel level, const char *txt) {}
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-    AvahiDnsPacket *p = NULL;
-    AvahiKey *k = NULL;
-    int ret;
+    char *s = NULL, *t = NULL;
 
-    avahi_set_log_function(log_function);
+    if(!(s = avahi_malloc(size+1)))
+        return 0;
 
-    if (!(p = avahi_dns_packet_new(size + AVAHI_DNS_PACKET_EXTRA_SIZE)))
-        goto finish;
+    memcpy(s, data, size);
+    s[size] = '\0';
 
-    memcpy(AVAHI_DNS_PACKET_DATA(p), data, size);
-    p->size = size;
+    if ((t = avahi_normalize_name_strdup(s)))
+        assert(avahi_domain_equal(s, t));
 
-    if (!(k = avahi_dns_packet_consume_key(p, NULL)))
-        goto finish;
+    avahi_is_valid_service_type_generic(s);
+    avahi_is_valid_service_type_strict(s);
+    avahi_is_valid_service_subtype(s);
+    avahi_is_valid_domain_name(s);
+    avahi_is_valid_service_name(s);
+    avahi_is_valid_host_name(s);
+    avahi_is_valid_fqdn(s);
 
-    ret = avahi_key_is_valid(k);
-    assert(ret);
+    avahi_free(avahi_alternative_host_name(s));
 
-    avahi_free(avahi_key_to_string(k));
-
-finish:
-    if (k)
-        avahi_key_unref(k);
-    if (p)
-        avahi_dns_packet_free(p);
+    avahi_free(t);
+    avahi_free(s);
 
     return 0;
 }
