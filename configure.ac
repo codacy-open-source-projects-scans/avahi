@@ -824,6 +824,26 @@ fi
 AM_CONDITIONAL(HAVE_LIBDAEMON, test "x$HAVE_LIBDAEMON" = "xyes")
 
 #
+# libsystemd
+#
+AC_ARG_ENABLE(libsystemd,
+        AS_HELP_STRING([--disable-libsystemd],[Disable use of libsystemd]),
+        [case "${enableval}" in
+                yes) HAVE_LIBSYSTEMD=yes ;;
+                no)  HAVE_LIBSYSTEMD=no ;;
+                *) AC_MSG_ERROR(bad value ${enableval} for --enable-libsystemd) ;;
+        esac],
+        [HAVE_LIBSYSTEMD=yes])
+
+if test "x$HAVE_LIBSYSTEMD" = "xyes" ; then
+    PKG_CHECK_MODULES(LIBSYSTEMD, [ libsystemd ])
+    AC_DEFINE([HAVE_LIBSYSTEMD], 1, [Support for libsystemd])
+    AC_SUBST(LIBSYSTEMD_CFLAGS)
+    AC_SUBST(LIBSYSTEMD_LIBS)
+fi
+AM_CONDITIONAL(HAVE_LIBSYSTEMD, test "x$HAVE_LIBSYSTEMD" = "xyes")
+
+#
 # Python stuff
 #
 AC_ARG_ENABLE(python,
@@ -1000,12 +1020,14 @@ fi
 AC_SUBST(AVAHI_AUTOIPD_GROUP)
 AC_DEFINE_UNQUOTED(AVAHI_AUTOIPD_GROUP,"$AVAHI_AUTOIPD_GROUP", [Group for running the avahi-autoipd daemon])
 
+# Autoconf 2.70 supports this natively but it is not yet universally available.
+AS_IF([test -z "${runstatedir}"], [runstatedir='${localstatedir}/run'])
+AC_SUBST([runstatedir])
+
 #
 # Avahi runtime dir
 #
-avahi_runtime_dir="/run"
-avahi_socket="${avahi_runtime_dir}/avahi-daemon/socket"
-AC_SUBST(avahi_runtime_dir)
+avahi_socket="${runstatedir}/avahi-daemon/socket"
 AC_SUBST(avahi_socket)
 
 #
@@ -1199,6 +1221,7 @@ echo "
     Enable GDBM:                               ${HAVE_GDBM}
     Enable DBM:                                ${HAVE_DBM}
     Enable libdaemon:                          ${HAVE_LIBDAEMON}
+    Enable libsystemd:                         ${HAVE_LIBSYSTEMD}
     Enable Python:                             ${HAVE_PYTHON}
     Enable pygobject:                          ${HAVE_PYGOBJECT}
     Enable python-dbus:                        ${HAVE_PYTHON_DBUS}

@@ -25,7 +25,7 @@ sed -i 's/check_inconsistencies=yes/check_inconsistencies=no/' common/acx_pthrea
     --disable-stack-protector --disable-qt3 --disable-qt4 --disable-qt5 --disable-gtk \
     --disable-gtk3 --disable-dbus --disable-gdbm --disable-libdaemon --disable-python \
     --disable-manpages --disable-mono --disable-monodoc --disable-glib --disable-gobject \
-    --disable-libevent
+    --disable-libevent --disable-libsystemd
 
 make -j"$(nproc)" V=1
 
@@ -41,3 +41,8 @@ for f in fuzz/fuzz-*.c; do
         $LIB_FUZZING_ENGINE \
         "avahi-core/.libs/libavahi-core.a" "avahi-common/.libs/libavahi-common.a"
 done
+
+# Let's take the systemd public corpus here. It has been accumulating since 2018
+# so it should be good enough for our purposes.
+wget -O "$OUT/fuzz-packet_seed_corpus.zip" \
+    https://storage.googleapis.com/systemd-backup.clusterfuzz-external.appspot.com/corpus/libFuzzer/systemd_fuzz-dns-packet/public.zip
