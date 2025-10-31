@@ -1,0 +1,44 @@
+*** Quick install instructions (tested on Debian/Ubuntu only!) ***
+
+While "configure" and "make" may be run as normal user all other commands
+need to be run as root.
+
+Configure the build system:
+	$ autoreconf -if
+	$ ./configure \
+            --libdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+            --localstatedir=/var \
+            --prefix=/usr \
+            --runstatedir=/run \
+            --sysconfdir=/etc
+
+It should be noted that it's suitable for testing purposes only.
+The script configuring the actual Debian package can be found at
+https://salsa.debian.org/utopia-team/avahi/-/blob/debian/master/debian/rules?ref_type=heads.
+Among other things it also turns on the hardening flags described at
+https://wiki.debian.org/Hardening.
+
+Build and install avahi:
+	$ make
+	# make install
+	# ldconfig
+
+Add a user and a group for avahi. (Debian specific)
+	# addgroup --system avahi
+	# adduser --system --no-create-home --ingroup avahi avahi
+
+Ask D-Bus to re-read its policies:
+	# systemctl reload dbus
+
+Now start the Avahi daemon:
+	# systemctl start avahi-daemon
+
+Optionally start the unicast DNS configuration daemon:
+	# systemctl start avahi-dnsconfd
+
+To start the two daemons at boot time on Debian based distributions:
+	# systemctl enable avahi-daemon
+	# systemctl enable avahi-dnsconfd
+
+If you plan to use avahi-autoipd you have to create the user/group
+"avahi-autoipd" much the same way as "avahi".
