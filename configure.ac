@@ -398,7 +398,15 @@ fi
 AM_CONDITIONAL(HAVE_DLOPEN, test "x$HAVE_DLOPEN" = "xyes")
 
 have_inotify=no
-AC_CHECK_HEADERS([sys/inotify.h], [have_inotify=yes])
+AC_LINK_IFELSE(
+        [AC_LANG_SOURCE([
+#include <sys/inotify.h>
+int main () {
+    return (-1 == inotify_init());
+}])],
+        [AC_MSG_RESULT([yes]); have_inotify=yes],
+        [AC_MSG_RESULT([no])]
+    )
 
 AM_CONDITIONAL(HAVE_INOTIFY, test "x$have_inotify" = "xyes")
 
@@ -888,9 +896,14 @@ if test "x$HAVE_PYTHON" = "xyes" ; then
         fi
 
         AM_CHECK_PYMOD(socket,,,[AC_MSG_ERROR(Could not find Python module socket)])
-        if test "x$HAVE_GDBM" = "xyes" || test "x$HAVE_DBM" = "xyes"; then
-            AM_CHECK_PYMOD(anydbm,,,[
-                AM_CHECK_PYMOD(dbm,,,[AC_MSG_ERROR(Could not find Python module dbm)])
+        if test "x$HAVE_GDBM" = "xyes"; then
+            AM_CHECK_PYMOD([dbm.gnu], [], [], [
+                AM_CHECK_PYMOD([gdbm], [], [], [AC_MSG_ERROR(Could not find Python module dbm.gnu or gdbm)])
+            ])
+        fi
+        if test "x$HAVE_DBM" = "xyes"; then
+            AM_CHECK_PYMOD([dbm.ndbm], [], [], [
+                AM_CHECK_PYMOD([dbm], [], [], [AC_MSG_ERROR(Could not find Python module dbm.ndbm or dbm)])
             ])
         fi
     fi
