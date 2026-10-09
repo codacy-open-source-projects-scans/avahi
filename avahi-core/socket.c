@@ -336,6 +336,9 @@ int avahi_open_socket_ipv4(int no_reuse) {
         goto fail;
     }
 
+    if (ipv4_pktinfo(fd) < 0)
+        goto fail;
+
     memset(&local, 0, sizeof(local));
     local.sin_family = AF_INET;
     local.sin_port = htons(AVAHI_MDNS_PORT);
@@ -347,9 +350,6 @@ int avahi_open_socket_ipv4(int no_reuse) {
 
     if (r < 0)
         goto fail;
-
-    if (ipv4_pktinfo (fd) < 0)
-         goto fail;
 
     if (avahi_set_cloexec(fd) < 0) {
         avahi_log_warn("FD_CLOEXEC failed: %s", strerror(errno));
@@ -406,6 +406,9 @@ int avahi_open_socket_ipv6(int no_reuse) {
         goto fail;
     }
 
+    if (ipv6_pktinfo(fd) < 0)
+        goto fail;
+
     memset(&local, 0, sizeof(local));
     local.sin6_family = AF_INET6;
     local.sin6_port = htons(AVAHI_MDNS_PORT);
@@ -416,9 +419,6 @@ int avahi_open_socket_ipv6(int no_reuse) {
         r = bind_with_warn(fd, (struct sockaddr*) &local, sizeof(local));
 
     if (r < 0)
-        goto fail;
-
-    if (ipv6_pktinfo(fd) < 0)
         goto fail;
 
     if (avahi_set_cloexec(fd) < 0) {
@@ -584,7 +584,10 @@ int avahi_send_dns_packet_ipv6(
     struct msghdr msg;
     struct iovec io;
     struct cmsghdr *cmsg;
-    size_t cmsg_data[(CMSG_SPACE(sizeof(struct in6_pktinfo))/sizeof(size_t)) + 1];
+    union {
+        uint8_t cmsg_data[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+        struct cmsghdr hdr;
+    } u;
 
     assert(fd >= 0);
     assert(p);
@@ -593,8 +596,11 @@ int avahi_send_dns_packet_ipv6(
 
     if (!dst_address)
         mdns_mcast_group_ipv6(&sa);
-    else
+    else {
         ipv6_address_to_sockaddr(&sa, dst_address, dst_port);
+        if (interface > 0 && IN6_IS_ADDR_LINKLOCAL(&sa.sin6_addr))
+            sa.sin6_scope_id = interface;
+    }
 
     memset(&io, 0, sizeof(io));
     io.iov_base = AVAHI_DNS_PACKET_DATA(p);
@@ -610,12 +616,12 @@ int avahi_send_dns_packet_ipv6(
     if (interface > 0 || src_address) {
         struct in6_pktinfo *pkti;
 
-        memset(cmsg_data, 0, sizeof(cmsg_data));
-        msg.msg_control = cmsg_data;
-        msg.msg_controllen = CMSG_LEN(sizeof(struct in6_pktinfo));
+        memset(u.cmsg_data, 0, sizeof(u.cmsg_data));
+        msg.msg_control = u.cmsg_data;
+        msg.msg_controllen = sizeof(u.cmsg_data);
 
         cmsg = CMSG_FIRSTHDR(&msg);
-        cmsg->cmsg_len = msg.msg_controllen;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
         cmsg->cmsg_level = IPPROTO_IPV6;
         cmsg->cmsg_type = IPV6_PKTINFO;
 
@@ -927,16 +933,15 @@ int avahi_open_unicast_socket_ipv4(void) {
         goto fail;
     }
 
+    if (ipv4_pktinfo(fd) < 0)
+        goto fail;
+
     memset(&local, 0, sizeof(local));
     local.sin_family = AF_INET;
 
     if (bind(fd, (struct sockaddr*) &local, sizeof(local)) < 0) {
         avahi_log_warn("bind() failed: %s", strerror(errno));
         goto fail;
-    }
-
-    if (ipv4_pktinfo(fd) < 0) {
-         goto fail;
     }
 
     if (avahi_set_cloexec(fd) < 0) {
@@ -973,6 +978,9 @@ int avahi_open_unicast_socket_ipv6(void) {
         goto fail;
     }
 
+    if (ipv6_pktinfo(fd) < 0)
+        goto fail;
+
     memset(&local, 0, sizeof(local));
     local.sin6_family = AF_INET6;
 
@@ -980,9 +988,6 @@ int avahi_open_unicast_socket_ipv6(void) {
         avahi_log_warn("bind() failed: %s", strerror(errno));
         goto fail;
     }
-
-    if (ipv6_pktinfo(fd) < 0)
-        goto fail;
 
     if (avahi_set_cloexec(fd) < 0) {
         avahi_log_warn("FD_CLOEXEC failed: %s", strerror(errno));
